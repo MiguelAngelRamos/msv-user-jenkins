@@ -1,13 +1,14 @@
 pipeline {
     agent any
     tools {
-        maven 'maven_jenkins'
+        maven 'maven_jenkins' // Nombre configurado para Maven en Jenkins
     }
     parameters {
         string(name: 'SERVICE_NAME', defaultValue: 'user-service-2', description: 'Nombre del microservicio (user-service-2 o order-service-2)')
         string(name: 'DEPLOYMENT_FILE', defaultValue: 'user-deployment.yaml', description: 'Archivo YAML de despliegue')
     }
     environment {
+        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
         KUBERNETES_TOKEN = credentials('kubernetes-token')
         KUBERNETES_CA_CERT = credentials('kubernetes-ca-cert-text')
         K8S_CLUSTER_URL = 'https://192.168.49.2:8443'
@@ -23,16 +24,30 @@ pipeline {
                 sh 'mvn clean package -DskipTests'
             }
         }
-        stage('Build and Push Docker Image') {
+        stage('Validate Docker Credentials') {
             steps {
                 script {
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh """
-                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                            docker buildx build --platform linux/amd64 -t mramoscli/${SERVICE_NAME}:latest .
-                            docker push mramoscli/${SERVICE_NAME}:latest
-                        """
+                    def loginResult = sh(
+                        script: """
+                            echo "${DOCKER_HUB_CREDENTIALS_PSW}" | docker login -u ${DOCKER_HUB_CREDENTIALS_USR} --password-stdin
+                        """,
+                        returnStatus: true // Captura el código de salida del comando
+                    )
+                    if (loginResult == 0) {
+                        echo "Docker login succeeded."
+                    } else {
+                        error("Docker login failed. Please check your credentials.")
                     }
+                }
+            }
+        }
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh """
+                        docker buildx build --platform linux/amd64 -t mramoscli/${SERVICE_NAME}:latest .
+                        docker push mramoscli/${SERVICE_NAME}:latest
+                    """
                 }
             }
         }
