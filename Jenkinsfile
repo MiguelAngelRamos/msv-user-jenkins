@@ -4,13 +4,13 @@ pipeline {
         maven 'maven_jenkins' // Nombre configurado para Maven en Jenkins
     }
     parameters {
-        string(name: 'SERVICE_NAME', defaultValue: 'user-service-2', description: 'Nombre del microservicio (user-service-2 o order-service-2)')
+        string(name: 'SERVICE_NAME', defaultValue: 'user-service', description: 'Nombre del microservicio (user-service, order-service, etc.)')
         string(name: 'DEPLOYMENT_FILE', defaultValue: 'user-deployment.yaml', description: 'Archivo YAML de despliegue')
     }
     environment {
-        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        KUBERNETES_TOKEN = credentials('kubernetes-token')
-        K8S_CLUSTER_URL = 'https://192.168.49.2:8443'
+        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials') // Credenciales de Docker Hub
+        KUBERNETES_TOKEN = credentials('kubernetes-token') // Token de Kubernetes
+        K8S_CLUSTER_URL = 'https://192.168.49.2:8443' // URL del clúster
     }
     stages {
         stage('Checkout Code') {
@@ -30,7 +30,7 @@ pipeline {
                         script: """
                             echo "${DOCKER_HUB_CREDENTIALS_PSW}" | docker login -u ${DOCKER_HUB_CREDENTIALS_USR} --password-stdin
                         """,
-                        returnStatus: true
+                        returnStatus: true // Captura el código de salida del comando
                     )
                     if (loginResult == 0) {
                         echo "Docker login succeeded."
@@ -53,11 +53,12 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
+                    // Cargar el certificado desde el archivo ya presente en el contenedor
                     sh """
-                        kubectl --server=${K8S_CLUSTER_URL} \
-                            --token=${KUBERNETES_TOKEN} \
-                            --certificate-authority=/root/ca.crt \
-                            apply -f kubernetes/deployments/${DEPLOYMENT_FILE} -n production
+                        echo "Deploying to Kubernetes..."
+                        kubectl --server=${K8S_CLUSTER_URL} --token=${KUBERNETES_TOKEN} \
+                        --certificate-authority=/root/ca.crt \
+                        apply -f kubernetes/deployments/${DEPLOYMENT_FILE} -n production
                     """
                 }
             }
