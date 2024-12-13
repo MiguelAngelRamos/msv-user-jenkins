@@ -3,11 +3,9 @@ pipeline {
     tools {
         maven 'maven_jenkins' // Nombre configurado para Maven en Jenkins
     }
-    parameters {
-        string(name: 'SERVICE_NAME', defaultValue: 'user-service', description: 'Nombre del microservicio (user-service, order-service, etc.)')
-        string(name: 'DEPLOYMENT_FILE', defaultValue: 'user-deployment.yaml', description: 'Archivo YAML de despliegue')
-    }
     environment {
+        SERVICE_NAME = 'user-service' // Nombre del microservicio por defecto
+        DEPLOYMENT_FILE = 'user-deployment.yaml' // Archivo YAML por defecto
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials') // Credenciales de Docker Hub
         KUBERNETES_TOKEN = credentials('kubernetes-token') // Token de Kubernetes
         K8S_CLUSTER_URL = 'https://192.168.49.2:8443' // URL del clúster
