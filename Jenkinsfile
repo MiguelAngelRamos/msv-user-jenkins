@@ -16,7 +16,8 @@ pipeline {
                 script {
                     sh """
                         echo "Testing connection to Kubernetes..."
-                        echo "${KUBERNETES_CA_CERT}" > /tmp/ca.crt
+                        # Escribimos el certificado en un archivo temporal
+                        echo "${KUBERNETES_CA_CERT}" | sed 's/\\\\n/\\n/g' > /tmp/ca.crt
                         kubectl --server=${K8S_CLUSTER_URL} --token=${KUBERNETES_TOKEN} --certificate-authority=/tmp/ca.crt get namespaces
                         rm /tmp/ca.crt
                     """
@@ -28,7 +29,8 @@ pipeline {
                 script {
                     sh """
                         echo "Applying deployment to Kubernetes..."
-                        echo "${KUBERNETES_CA_CERT}" > /tmp/ca.crt
+                        # Escribimos el certificado en un archivo temporal
+                        echo "${KUBERNETES_CA_CERT}" | sed 's/\\\\n/\\n/g' > /tmp/ca.crt
                         kubectl --server=${K8S_CLUSTER_URL} --token=${KUBERNETES_TOKEN} --certificate-authority=/tmp/ca.crt apply -f kubernetes/deployments/user-deployment.yaml -n production
                         rm /tmp/ca.crt
                     """
