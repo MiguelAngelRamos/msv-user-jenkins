@@ -1,62 +1,35 @@
 pipeline {
     agent any
-    tools {
-        maven 'maven_jenkins' // Nombre configurado para Maven en Jenkins
-    }
-    parameters {
-        string(name: 'SERVICE_NAME', defaultValue: 'user-service-2', description: 'Nombre del microservicio (user-service-2 o order-service-2)')
-        string(name: 'DEPLOYMENT_FILE', defaultValue: 'user-deployment.yaml', description: 'Archivo YAML de despliegue')
-    }
     environment {
-        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        KUBERNETES_TOKEN = credentials('kubernetes-token')
-        KUBERNETES_CA_CERT = credentials('kubernetes-ca-cert-text')
-        K8S_CLUSTER_URL = 'https://192.168.49.2:8443'
+        KUBERNETES_TOKEN = credentials('kubernetes-token') // Token del ServiceAccount
+        KUBERNETES_CA_CERT = credentials('kubernetes-ca-cert-text') // Certificado CA
+        K8S_CLUSTER_URL = 'https://192.168.49.2:8443' // URL del clúster
     }
     stages {
-        stage('Checkout Code') {
+        stage('Checkout Deployment Files') {
             steps {
                 checkout scm
             }
         }
-        stage('Build JAR') {
-            steps {
-                sh 'mvn clean package -DskipTests'
-            }
-        }
-        stage('Validate Docker Credentials') {
-            steps {
-                script {
-                    def loginResult = sh(
-                        script: """
-                            echo "${DOCKER_HUB_CREDENTIALS_PSW}" | docker login -u ${DOCKER_HUB_CREDENTIALS_USR} --password-stdin
-                        """,
-                        returnStatus: true // Captura el código de salida del comando
-                    )
-                    if (loginResult == 0) {
-                        echo "Docker login succeeded."
-                    } else {
-                        error("Docker login failed. Please check your credentials.")
-                    }
-                }
-            }
-        }
-        stage('Build Docker Image') {
+        stage('Test Kubernetes Connection') {
             steps {
                 script {
                     sh """
-                        docker buildx build --platform linux/amd64 -t mramoscli/${SERVICE_NAME}:latest .
-                        docker push mramoscli/${SERVICE_NAME}:latest
+                        echo "Testing connection to Kubernetes..."
+                        echo "${KUBERNETES_CA_CERT}" > /tmp/ca.crt
+                        kubectl --server=${K8S_CLUSTER_URL} --token=${KUBERNETES_TOKEN} --certificate-authority=/tmp/ca.crt get namespaces
+                        rm /tmp/ca.crt
                     """
                 }
             }
         }
-        stage('Deploy to Kubernetes') {
+        stage('Apply Kubernetes Deployment') {
             steps {
                 script {
                     sh """
+                        echo "Applying deployment to Kubernetes..."
                         echo "${KUBERNETES_CA_CERT}" > /tmp/ca.crt
-                        kubectl --server=${K8S_CLUSTER_URL} --token=${KUBERNETES_TOKEN} --certificate-authority=/tmp/ca.crt apply -f kubernetes/deployments/${DEPLOYMENT_FILE} -n production
+                        kubectl --server=${K8S_CLUSTER_URL} --token=${KUBERNETES_TOKEN} --certificate-authority=/tmp/ca.crt apply -f kubernetes/deployments/user-deployment.yaml -n production
                         rm /tmp/ca.crt
                     """
                 }
