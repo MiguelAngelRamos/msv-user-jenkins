@@ -24,12 +24,28 @@ pipeline {
                 sh 'mvn clean package -DskipTests'
             }
         }
+        stage('Validate Docker Credentials') {
+            steps {
+                script {
+                    def loginResult = sh(
+                        script: """
+                            echo "${DOCKER_HUB_CREDENTIALS_PSW}" | docker login -u ${DOCKER_HUB_CREDENTIALS_USR} --password-stdin
+                        """,
+                        returnStatus: true // Captura el código de salida del comando
+                    )
+                    if (loginResult == 0) {
+                        echo "Docker login succeeded."
+                    } else {
+                        error("Docker login failed. Please check your credentials.")
+                    }
+                }
+            }
+        }
         stage('Build Docker Image') {
             steps {
                 script {
                     sh """
                         docker buildx build --platform linux/amd64 -t mramoscli/${SERVICE_NAME}:latest .
-                        docker login -u ${DOCKER_HUB_CREDENTIALS_USR} -p ${DOCKER_HUB_CREDENTIALS_PSW}
                         docker push mramoscli/${SERVICE_NAME}:latest
                     """
                 }
