@@ -5,10 +5,10 @@ pipeline {
         string(name: 'DEPLOYMENT_FILE', defaultValue: 'user-deployment.yaml', description: 'Archivo YAML de despliegue')
     }
     environment {
-        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        KUBERNETES_TOKEN = credentials('kubernetes-token')
-        KUBERNETES_CA_CERT = credentials('kubernetes-ca-cert')
-        K8S_CLUSTER_URL = 'https://192.168.49.2:8443'
+        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials') // Docker Hub
+        KUBERNETES_TOKEN = credentials('kubernetes-token') // Token de Kubernetes
+        KUBERNETES_CA_CERT = credentials('kubernetes-ca-cert-text') // Certificado como texto
+        K8S_CLUSTER_URL = 'https://192.168.49.2:8443' // URL del clúster
     }
     stages {
         stage('Checkout Code') {
@@ -35,8 +35,11 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
+                    // Escribe el certificado en un archivo temporal
                     sh """
-                        kubectl --server=${K8S_CLUSTER_URL} --token=${KUBERNETES_TOKEN} --certificate-authority=${KUBERNETES_CA_CERT} apply -f kubernetes/deployments/${DEPLOYMENT_FILE} -n production
+                        echo "${KUBERNETES_CA_CERT}" > /tmp/ca.crt
+                        kubectl --server=${K8S_CLUSTER_URL} --token=${KUBERNETES_TOKEN} --certificate-authority=/tmp/ca.crt apply -f kubernetes/deployments/${DEPLOYMENT_FILE} -n production
+                        rm /tmp/ca.crt
                     """
                 }
             }
